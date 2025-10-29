@@ -1,297 +1,263 @@
-/* main.js — HoloNet v2.4 client (patched to work with server.py v2.3-patched-v2)
-   - Keeps existing UI/IDs from index.html & styles.css
-   - Stable WS protocol: hello/pong/frame
-   - Heartbeat 4 Hz with phiRate (v slider) & latency calculation
-   - Graceful connect/disconnect & Close handshake
-   - MatrixDelta rendering onto <canvas id="frameCanvas">
-   - Throttled rendering and simple FPS meter
+/* main.js — HoloNet v2.4.2 client
+   Compatible with server.py v2.3-patched-v2 (proto 1.2)
+   Fixes: reliable DEBUG via ?debug=1 (or 0..4), proper level clamping,
+          console mirroring, and guaranteed log panel presence.
 */
 
 (() => {
-  // ---------- DOM ----------
-  const el = (id) => document.getElementById(id);
-  const statusEl = el('status');
-  const sigilEl = el('sigilDisplay');
-  const logEl = el('log');
-  const canvas = el('frameCanvas');
-  const overlay = el('canvasOverlay');
-  const ctx = canvas.getContext('2d');
+  // ---------- DOM helpers ----------
+  function $(id){ return document.getElementById(id); }
+  function ensureLogPanel(){
+    let node = $('log');
+    if (!node){
+      node = document.createElement('div');
+      node.id = 'log';
+      node.style.height = '150px';
+      node.style.overflowY = 'auto';
+      node.style.margin = '8px 0';
+      node.style.fontFamily = 'monospace';
+      node.style.fontSize = '12px';
+      node.style.color = '#9eff9e';
+      document.body.appendChild(node);
+    }
+    return node;
+  }
 
-  const connectBtn = el('connectBtn');
-  const disconnectBtn = el('disconnectBtn');
-  const transformBtn = el('transformBtn');
+  const statusEl = $('status');
+  const sigilEl  = $('sigilDisplay');
+  const logEl    = ensureLogPanel();
+  const canvas   = $('frameCanvas');
+  const overlay  = $('canvasOverlay');
+  const ctx      = canvas.getContext('2d');
 
-  const vSlider = el('velocity');
-  const zSlider = el('horizon');
-  const wSlider = el('width');
-  const hSlider = el('height');
+  const connectBtn    = $('connectBtn');
+  const disconnectBtn = $('disconnectBtn');
+  const transformBtn  = $('transformBtn');
 
-  const vValue = el('vValue');
-  const zValue = el('zValue');
-  const wValue = el('wValue');
-  const hValue = el('hValue');
+  const vSlider = $('velocity');
+  const zSlider = $('horizon');
+  const wSlider = $('width');
+  const hSlider = $('height');
 
-  // ---------- State ----------
-  let ws = null;
-  let seq = 0;
-  let connected = false;
-  let heartbeatTimer = null;
-  let fpsTimer = null;
-  let lastFrameTs = 0;
-  let framesThisSecond = 0;
-  let fps = 0;
-  let latencyMs = 0;
+  const vValue = $('vValue');
+  const zValue = $('zValue');
+  const wValue = $('wValue');
+  const hValue = $('hValue');
 
-  // world grid backing store (sparse)
+  // ---------- Logging (lightweight + reliable) ----------
+  const Levels = { OFF:0, ERROR:1, WARN:2, INFO:3, DEBUG:4 };
+  const Names  = ['OFF','ERROR','WARN','INFO','DEBUG'];
+
+  function parseDebugParam(){
+    const m = /[?&]debug=([^&#]+)/.exec(window.location.search);
+    if (!m) return null;
+    const raw = decodeURIComponent(m[1]);
+    if (raw === 'true' || raw === '1') return 4;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) ? Math.max(0, Math.min(4, n)) : null;
+  }
+  const urlLevel = parseDebugParam();
+  let logLevel = (urlLevel != null
+                  ? urlLevel
+                  : (Number.isFinite(parseInt(localStorage.getItem('holonet.logLevel'),10))
+                      ? Math.max(0, Math.min(4, parseInt(localStorage.getItem('holonet.logLevel'),10)))
+                      : Levels.WARN));
+
+  const RING_MAX = 800;
+  const ring = [];
+  let panelVisible = true;
+  let lastKey = '', lastCount = 0;
+
+  function push(level, msg){
+    if (level > logLevel || level === Levels.OFF) return;
+    const ts = new Date().toISOString().slice(11,19);
+    const key = level + '|' + msg;
+    if (key === lastKey){
+      lastCount++;
+      const node = logEl.lastElementChild;
+      if (node) node.textContent = `${ts} x${lastCount} | ${msg}`;
+      const last = ring[ring.length-1]; if (last){ last.ts = ts; last.count = lastCount; }
+    } else {
+      lastKey = key; lastCount = 1;
+      const line = document.createElement('div');
+      if (level === Levels.ERROR) line.classList.add('error');
+      if (level === Levels.WARN)  line.classList.add('warn');
+      line.textContent = `${ts} | ${msg}`;
+      if (panelVisible){ logEl.appendChild(line); logEl.scrollTop = logEl.scrollHeight; }
+      ring.push({ts,level,msg,count:1});
+      if (ring.length > RING_MAX) ring.shift();
+    }
+    // Mirror to console for devtools visibility
+    const prefix = `[${Names[level]}]`;
+    if (level === Levels.ERROR) console.error(prefix, msg);
+    else if (level === Levels.WARN) console.warn(prefix, msg);
+    else console.log(prefix, msg);
+  }
+  const Log = {
+    error: (m)=>push(Levels.ERROR,m),
+    warn:  (m)=>push(Levels.WARN,m),
+    info:  (m)=>push(Levels.INFO,m),
+    debug: (m)=>push(Levels.DEBUG,m),
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (!e.ctrlKey) return;
+    if (e.code === 'KeyL'){ panelVisible = !panelVisible; logEl.style.display = panelVisible ? '' : 'none'; e.preventDefault(); }
+    if (e.code === 'KeyD'){ logLevel = (logLevel+1)%5; localStorage.setItem('holonet.logLevel', String(logLevel)); Log.info(`Log level → ${Names[logLevel]}`); e.preventDefault(); }
+    if (e.code === 'KeyS'){ saveLog(); e.preventDefault(); }
+  });
+  function saveLog(){
+    const lines = ring.map(r => `${r.ts} [${Names[r.level]}]${r.count>1?` x${r.count}`:''} ${r.msg}`);
+    const blob = new Blob([lines.join('\n')+'\n'], {type:'text/plain'});
+    const url  = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `holonet_client_${Date.now()}.log`; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+  }
+
+  // ---------- Client state ----------
+  let ws = null, connected = false;
+  let heartbeatTimer = null, fpsTimer = null;
+  let framesThisSecond = 0, fps = 0, latencyMs = 0;
   let dimW = 64, dimH = 32;
-  const grid = new Map(); // key "x,y" -> value 0..9
+  const grid = new Map();
 
   // ---------- Utils ----------
   const now = () => Date.now();
-  const log = (msg, isErr = false) => {
-    const line = document.createElement('div');
-    if (isErr) line.classList.add('error');
-    line.textContent = msg;
-    logEl.appendChild(line);
-    logEl.scrollTop = logEl.scrollHeight;
-  };
-
-  const setStatus = (text) => {
-    statusEl.textContent = text;
-  };
-
+  const setStatus = (t) => statusEl && (statusEl.textContent = t);
   const updateHUD = () => {
     const sess = ws ? (ws._sessionId || '—') : 'None';
-    setStatus(`Status: [${connected ? 'Connected' : 'Disconnected'}] | Session: ${sess} | Latency: ${latencyMs.toFixed(1)}ms | FPS: ${fps}`);
-  };
-
-  const setButtons = (isConnected) => {
-    connectBtn.disabled = isConnected;
-    disconnectBtn.disabled = !isConnected;
-    transformBtn.disabled = !isConnected;
-    overlay.classList.toggle('hidden', isConnected);
-  };
-
-  // color palette for 0..9 (retro phosphor intensity)
-  const shades = [
-    '#001800', '#003100', '#004a00', '#006300', '#007c00',
-    '#009500', '#00ae00', '#00c700', '#00e000', '#00ff00'
-  ];
-
-  function drawCell(x, y, v) {
-    const cellW = Math.floor(canvas.width / dimW);
-    const cellH = Math.floor(canvas.height / dimH);
-    const val = (v|0);
-    const idx = Math.max(0, Math.min(9, val));
-    ctx.fillStyle = shades[idx];
-    ctx.fillRect(x * cellW, y * cellH, cellW, cellH);
-  }
-
-  function redrawAll() {
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    for (const [k, v] of grid) {
-      const [x, y] = k.split(',').map(Number);
-      drawCell(x, y, v);
+    if (statusEl){
+      statusEl.textContent = `Status: [${connected ? 'Connected' : 'Disconnected'}] | Session: ${sess} | Latency: ${latencyMs.toFixed(1)}ms | FPS: ${fps}`;
     }
-  }
+  };
 
-  function resizeCanvasToView() {
-    // Keep aspect but fill container area (CSS confines it)
-    const w = Math.max(16, parseInt(wSlider.value, 10));
-    const h = Math.max(8, parseInt(hSlider.value, 10));
-    // Multipliers for crisp pixel rendering
-    const mul = 8;
-    canvas.width = w * mul;
-    canvas.height = h * mul;
-    redrawAll();
+  const shades = ['#001800','#003100','#004a00','#006300','#007c00','#009500','#00ae00','#00c700','#00e000','#00ff00'];
+  function drawCell(x,y,v){
+    const cw = Math.max(1, Math.floor(canvas.width  / dimW));
+    const ch = Math.max(1, Math.floor(canvas.height / dimH));
+    const idx = Math.max(0, Math.min(9, v|0));
+    ctx.fillStyle = shades[idx];
+    ctx.fillRect(x*cw, y*ch, cw, ch);
+  }
+  function redrawAll(){
+    ctx.fillStyle = '#000'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    for (const [k,v] of grid){ const [x,y] = k.split(',').map(Number); drawCell(x,y,v); }
+  }
+  function resizeCanvasToView(){
+    const w = Math.max(16, parseInt(wSlider?.value||'64',10));
+    const h = Math.max(8,  parseInt(hSlider?.value||'32',10));
+    const mul = 8; canvas.width = w*mul; canvas.height = h*mul; redrawAll();
   }
 
   // ---------- WS logic ----------
-  function wsUrl() {
+  function wsUrl(){
     const host = window.location.hostname || 'localhost';
-    const port = 8765;
-    return `ws://${host}:${port}/holonet?proto=1.2`;
+    return `ws://${host}:8765/holonet?proto=1.2`;
   }
-
-  function send(obj) {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(JSON.stringify(obj));
+  function send(obj){
+    if (ws && ws.readyState === WebSocket.OPEN){
+      ws.send(JSON.stringify(obj));
+      Log.debug(`[TX] ${obj.op}`);
+    }
   }
-
-  function startHeartbeat() {
+  function startHeartbeat(){
     stopHeartbeat();
-    const tickHz = 4; // sane default
     heartbeatTimer = setInterval(() => {
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      const frame = {
-        op: 'heartbeat',
-        ts: now(),
-        phiRate: parseFloat(vSlider.value || '0.5')
-      };
-      send(frame);
-    }, 1000 / tickHz);
+      if (ws && ws.readyState === WebSocket.OPEN){
+        send({ op:'heartbeat', ts: now(), phiRate: parseFloat(vSlider?.value||'0.5') });
+      }
+    }, 250); // 4 Hz
   }
-
-  function stopHeartbeat() {
-    if (heartbeatTimer) {
-      clearInterval(heartbeatTimer);
-      heartbeatTimer = null;
-    }
-  }
-
-  function startFpsMeter() {
+  function stopHeartbeat(){ if (heartbeatTimer){ clearInterval(heartbeatTimer); heartbeatTimer = null; } }
+  function startFpsMeter(){
     stopFpsMeter();
-    fpsTimer = setInterval(() => {
-      fps = framesThisSecond;
-      framesThisSecond = 0;
-      updateHUD();
-    }, 1000);
+    fpsTimer = setInterval(()=>{ fps = framesThisSecond; framesThisSecond = 0; updateHUD(); }, 1000);
   }
+  function stopFpsMeter(){ if (fpsTimer){ clearInterval(fpsTimer); fpsTimer = null; } }
 
-  function stopFpsMeter() {
-    if (fpsTimer) {
-      clearInterval(fpsTimer);
-      fpsTimer = null;
-    }
-  }
-
-  function attachEvents() {
-    connectBtn.addEventListener('click', connect);
-    disconnectBtn.addEventListener('click', disconnect);
-    transformBtn.addEventListener('click', () => {
-      send({ op: 'transform', z: parseInt(zSlider.value, 10) });
-      log('[TX] transform requested (symbolic relativity)');
-    });
+  function attachEvents(){
+    if (connectBtn)   connectBtn.addEventListener('click', connect);
+    if (disconnectBtn)disconnectBtn.addEventListener('click', disconnect);
+    if (transformBtn) transformBtn.addEventListener('click', ()=>{ send({op:'transform', z: parseInt(zSlider?.value||'0',10)}); Log.info('[TX] transform requested'); });
 
     const onSlider = () => {
-      vValue.textContent = parseFloat(vSlider.value).toFixed(2);
-      zValue.textContent = zSlider.value;
-      wValue.textContent = wSlider.value;
-      hValue.textContent = hSlider.value;
+      if (vValue) vValue.textContent = parseFloat(vSlider?.value||'0.5').toFixed(2);
+      if (zValue) zValue.textContent = zSlider?.value||'0';
+      if (wValue) wValue.textContent = wSlider?.value||'64';
+      if (hValue) hValue.textContent = hSlider?.value||'32';
       resizeCanvasToView();
-      // Send view update (server may ignore; harmless)
-      send({
-        op: 'view',
-        view: { w: parseInt(wSlider.value, 10), h: parseInt(hSlider.value, 10), z: parseInt(zSlider.value, 10) }
-      });
+      send({ op:'view', view:{ w: parseInt(wSlider?.value||'64',10), h: parseInt(hSlider?.value||'32',10), z: parseInt(zSlider?.value||'0',10) } });
     };
-    vSlider.addEventListener('input', onSlider);
-    zSlider.addEventListener('input', onSlider);
-    wSlider.addEventListener('input', onSlider);
-    hSlider.addEventListener('input', onSlider);
-    onSlider(); // initial
+    vSlider && vSlider.addEventListener('input', onSlider);
+    zSlider && zSlider.addEventListener('input', onSlider);
+    wSlider && wSlider.addEventListener('input', onSlider);
+    hSlider && hSlider.addEventListener('input', onSlider);
+    onSlider();
   }
 
-  function connect() {
+  function connect(){
     if (connected) return;
     ws = new WebSocket(wsUrl());
 
     ws.addEventListener('open', () => {
       connected = true;
       setButtons(true);
-      log(`[OPEN] Connecting to ${wsUrl()}`);
-      updateHUD();
-      startHeartbeat();
-      startFpsMeter();
+      Log.info(`[OPEN] ${wsUrl()}`);
+      updateHUD(); startHeartbeat(); startFpsMeter();
     });
 
     ws.addEventListener('message', (ev) => {
       let data = ev.data;
-      try { data = JSON.parse(ev.data); } catch (e) { /* text log */ }
+      try { data = JSON.parse(ev.data); } catch {}
+      if (typeof data === 'string'){ Log.debug(`[RECV text] ${data}`); return; }
+      Log.debug(`[RECV] ${data.op}`);
 
-      if (typeof data === 'string') {
-        log(`[RECV text] ${data}`);
-        return;
-      }
-
-      const op = data.op;
-      switch (op) {
-        case 'hello': {
-          // optional session id (client-side only)
-          ws._sessionId = (Math.random().toString(16).slice(2, 10));
-          log(`[HELLO] server=${data.server} proto=${data.proto} frames=${data.frames_version}`);
+      switch (data.op){
+        case 'hello':
+          ws._sessionId = (Math.random().toString(16).slice(2,10));
+          Log.info(`[HELLO] server=${data.server} proto=${data.proto} frames=${data.frames_version}`);
           break;
-        }
-        case 'pong': {
-          if (typeof data.ts === 'number') {
-            latencyMs = now() - data.ts;
-            updateHUD();
-          }
+        case 'pong':
+          if (typeof data.ts === 'number'){ latencyMs = now() - data.ts; updateHUD(); }
           break;
-        }
-        case 'frame': {
-          handleFrame(data);
-          break;
-        }
+        case 'frame':
+          handleFrame(data); break;
         default:
-          log(`[RECV] ${JSON.stringify(data)}`);
+          Log.debug(JSON.stringify(data));
       }
     });
 
-    ws.addEventListener('close', (ev) => {
-      log(`[CLOSE] code=${ev.code} reason=${ev.reason || '—'}`);
-      cleanup();
-    });
-
-    ws.addEventListener('error', (err) => {
-      log(`[ERROR] ${err?.message || err}`, true);
-    });
+    ws.addEventListener('close', (ev) => { Log.warn(`[CLOSE] code=${ev.code} reason=${ev.reason||'—'}`); cleanup(); });
+    ws.addEventListener('error', (err) => { Log.error(`[ERROR] ${err?.message||err}`); });
   }
 
-  function handleFrame(frame) {
-    // Keep dimensions synced (server sends real dims)
-    if (frame.dimensions) {
-      dimW = frame.dimensions.w || dimW;
-      dimH = frame.dimensions.h || dimH;
-    }
+  function handleFrame(frame){
+    if (frame.dimensions){ dimW = frame.dimensions.w||dimW; dimH = frame.dimensions.h||dimH; }
+    const sig = frame.layers?.Sigil?.[0]; if (sig) sigilEl && (sigilEl.textContent = `Sigil: ${sig}`);
 
-    // Update Sigil
-    const sig = frame.layers?.Sigil?.[0];
-    if (sig) {
-      sigilEl.textContent = `Sigil: ${sig}`;
-    }
-
-    // Apply MatrixDelta
     const delta = frame.layers?.MatrixDelta || {};
-    for (const k in delta) {
-      grid.set(k, delta[k]);
-    }
-    // Draw only changed cells (fast path)
-    for (const k in delta) {
-      const [x, y] = k.split(',').map(Number);
-      drawCell(x, y, delta[k]);
-    }
+    for (const k in delta){ grid.set(k, delta[k]); }
+    for (const k in delta){ const [x,y] = k.split(',').map(Number); drawCell(x,y, delta[k]); }
 
-    // FPS accounting
-    framesThisSecond++;
-    lastFrameTs = now();
-
-    // Optional: show phase from meta
-    if (frame.meta && frame.meta.phase) {
-      // lightweight visual cue in status line (phase)
+    if (frame.meta?.phase && statusEl){
       statusEl.textContent = statusEl.textContent.replace(/\s+\|.*$/,'') + ` | Phase: ${frame.meta.phase}`;
     }
+    framesThisSecond++;
   }
 
-  function disconnect() {
-    if (!ws) return;
-    try {
-      // polite close with 1000
-      ws.close(1000, 'client going away');
-    } catch {}
-  }
-
-  function cleanup() {
-    connected = false;
-    setButtons(false);
-    stopHeartbeat();
-    stopFpsMeter();
-    updateHUD();
+  function disconnect(){ if (ws){ try{ ws.close(1000,'client going away'); }catch{} } }
+  function cleanup(){ connected = false; setButtons(false); stopHeartbeat(); stopFpsMeter(); updateHUD(); }
+  function setButtons(isConnected){
+    if (connectBtn) connectBtn.disabled = isConnected;
+    if (disconnectBtn) disconnectBtn.disabled = !isConnected;
+    if (transformBtn) transformBtn.disabled = !isConnected;
+    if (overlay) overlay.classList.toggle('hidden', isConnected);
   }
 
   // Init
   attachEvents();
   resizeCanvasToView();
   updateHUD();
+  Log.info(`Log level = ${Names[logLevel]} (Ctrl+D to change, Ctrl+L to toggle, Ctrl+S to save)`);
 })();
