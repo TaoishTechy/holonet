@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>HoloNet v2.0 — CPU-First Lattice</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">HoloNet <span class="ver">v2.0</span></div>
+    <div class="spacer"></div>
+    <div class="right">
+      <span id="fps">FPS: --</span>
+      <span id="coh">Coherence: --</span>
+      <span id="ents">Entities: --</span>
+      <span id="net" class="chip idle">idle</span>
+    </div>
+  </header>
+
+  <section id="controls">
+    <div class="row">
+      <label>WS URL</label>
+      <input id="wsurl" type="text" value="ws://localhost:8765/holonet" />
+      <label>Token</label>
+      <input id="wstoken" type="text" placeholder="optional Bearer token" />
+      <button id="connect">Connect</button>
+      <button id="disconnect">Disconnect</button>
+      <label class="toggle"><input id="simulate" type="checkbox" /> Simulate</label>
+      <label class="toggle"><input id="httpFallback" type="checkbox" /> HTTP Fallback</label>
+      <label class="toggle"><input id="toggleGL" type="checkbox" /> WebGL</label>
+    </div>
+    <div class="row">
+      <label>Plane</label>
+      <select id="plane">
+        <option value="xy">XY</option>
+        <option value="xz">XZ</option>
+        <option value="yz">YZ</option>
+      </select>
+      <label>Slice</label>
+      <input id="slice" type="range" min="-12" max="12" value="0" />
+      <label>LOD</label>
+      <input id="lod" type="range" min="1" max="4" value="1" />
+      <label class="toggle"><input id="edges" type="checkbox" checked /> Entanglement</label>
+      <label class="toggle"><input id="volition" type="checkbox" checked /> Volition</label>
+      <label class="toggle"><input id="pause" type="checkbox" /> Pause</label>
+    </div>
+    <div class="row">
+      <label>HTTP Base</label>
+      <input id="httpBase" type="text" value="http://localhost:8080" />
+      <button id="fetchStatus">/status</button>
+      <button id="fetchFrame">/quantum_frame</button>
+    </div>
+  </section>
+
+  <main id="stage">
+    <canvas id="canvas2d"></canvas>
+    <canvas id="canvas3d"></canvas>
+  </main>
+
+  <footer class="foot">
+    <details>
+      <summary>Diagnostics</summary>
+      <pre id="log" class="log"></pre>
+    </details>
+  </footer>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
