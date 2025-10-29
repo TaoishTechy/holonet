@@ -1,0 +1,24 @@
+{
+  "ver": "1.2",
+  "vortices": [
+    {
+      "entity": "e3",
+      "glyphs": [
+        "Φ",
+        "⊗",
+        "⊕"
+      ],
+      "amp": 0.77,
+      "phase": 1.23,
+      "center": [
+        0.5,
+        -0.5,
+        0.2
+      ],
+      "tunneled": {
+        "sim_id": "qutip-1",
+        "projected_state": "<opaque>"
+      }
+    }
+  ]
+}
