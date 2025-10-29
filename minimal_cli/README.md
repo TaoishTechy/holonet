@@ -1,53 +1,124 @@
-# HoloNet v2.3 - Weaver Terminal (minimal working package)
+# 🧠 HoloNet v3.0 — A Symbolic Computational Framework
 
-You provided:
-- hostname: `holonet.local`
-- local IP fallback: `172.20.10.3/28` on 	`eth0`
+**HoloNet v3.0** is a phi-driven, real-time computational visualization system that explores the convergence of quantum neural simulation, symbolic systems, and perception modeling. It integrates the **Symbolic Relativity Framework v3.0 (SRF v3.0)** — a novel cognitive architecture defined by 60 laws linking perception, emergence, and computation.
 
-This package contains a minimal but working server and client with:
-- WebSocket server (port 8765) accepting `/holonet?proto=1.2`
-- Client HTML + JS that will attempt `ws://holonet.local:8765/...` then fallback to `ws://172.20.10.3:8765/...`
-- Optional HTTP status endpoint on port 8080 (requires `aiohttp`)
+---
 
-## Quick start (Kali / Debian / Ubuntu)
+## 🧬 Project Overview
 
-1. Extract and enter folder:
+HoloNet simulates a symbolic environment where every frame is a high-dimensional matrix projected using phi-modulated wave functions. These projections generate glyph-based visualizations, inspired by retro BBS terminals, representing real-time quantum events and symbolic emergence.
+
+The system is built for:
+- Experimental cognitive science
+- Visual neural network introspection
+- Educational demonstrations of symbolic AI
+- Artistic or meditative exploration of structured chaos
+
+---
+
+## 🔍 Core Features
+
+- **Phi-based Matrix Generation** — Golden-ratio projection system with wave interference.
+- **Quantum Neural States** — Simulates probabilistic superposition and entanglement at the glyph level.
+- **Symbolic Layer Detection** — Identifies and highlights emergent patterns using SRF Laws.
+- **Relativistic Glyph Warping** — Symbolic Lorentz transform simulates high-velocity cognitive perception.
+- **Delta Compression** — Efficient real-time data transfer with minimal bandwidth.
+- **Client Interaction** — Live panning, zooming, and parameter toggling from the UI.
+
+---
+
+## ⚙️ Getting Started
+
+### Prerequisites
+- Python 3.8+
+- Modern browser (Chrome, Firefox)
+
+### Install Dependencies
 ```bash
-unzip holonet_v2.3.zip
-cd holonet_v2.3
+pip install aiohttp websockets
 ```
 
-2. Create a venv and install deps:
-```bash
-python3 -m venv venv
-. venv/bin/activate
-python3 -m pip install --upgrade pip
-pip install websockets zeroconf aiohttp
-```
-(zeroconf is optional but recommended for `holonet.local` advertisement)
-
-3. Start the server:
+### Start the Server
 ```bash
 python3 server.py
 ```
 
-4. Open the client:
-- Serve the `index.html` (simple way):
-```bash
-python3 -m http.server 8000
-# open http://localhost:8000 in a browser on the machine (or use another machine and open http://172.20.10.3:8000)
+### Launch the Interface
+Open `client/index.html` in your browser.
+
+---
+
+## 🧠 Symbolic Relativity Framework v3.0
+
+SRF v3.0 is a formal model exploring how symbols interact with cognition, reality, and observer influence. It posits 60 laws organized into five categories:
+
+1. **Encoded Potential** — Identity is change; potential precedes actuality.
+2. **Quantum Semiotics** — Emotion is phase shift; belief shapes stability.
+3. **Neuro-Magic** — Activation, trauma, attention, and coherence modeled neurally.
+4. **Cosmic Computation** — The universe behaves like an evolving computation.
+5. **Emergent Personhood** — Minds are stable symbolic attractors.
+
+These principles are embedded into the rendering logic and used to interpret frame data.
+
+---
+
+## 🗂 Project Structure
+
+```
+HoloNet_v3.0/
+├── proto_phi.py           # Symbolic + quantum projection engine
+├── server.py              # WebSocket + session handler
+└── client/
+    ├── index.html         # Terminal UI
+    ├── main.js            # Renderer + input logic
+    └── styles.css         # Visual styling (green CRT aesthetic)
 ```
 
-5. Click **Connect** on the Weaver Terminal page. The client will attempt `holonet.local` then fallback to your provided IP.
+---
 
-## Notes & hardening
-- If your host has multiple NICs, ensure mDNS advertises on the correct interface. Avahi may be used instead of zeroconf (system package).
-- Firewall: allow ports 8765 (ws) and 8080 (http status) and 8000 (static if using python http.server).
-- For production, replace simple echo logic with the full HoloFrame handling and safe parsing. Validate all incoming JSON and add authentication (ABT / archetype-bound token).
+## 🧭 Controls & Interaction
 
-## Extras I can add on request
-- Avahi systemd unit file and example `avahi.service`
-- systemd unit for server.py
-- JWT/ABT auth stub + example policy
-- Packaging as a .deb for easy deployment
+| Control           | Function                          |
+|------------------|-----------------------------------|
+| Arrows / Buttons | Pan view (x, y axis)              |
+| `+` / `-`         | Zoom in/out (Z-plane depth)       |
+| `T`               | Toggle symbolic relativity mode   |
+| `S`               | Toggle symbolic layer overlay     |
+| `R`               | Reset camera to origin            |
+
+System also adapts based on **phi-rate**, affecting matrix cadence, glyph warping, and coherence.
+
+---
+
+## 📊 Observability & Logging
+
+- Logs quantum events per session: superposition / entanglement counts
+- Flags anomaly spikes (e.g., S > 10, E > 10)
+- Tracks phi-rate and symbolic density
+- Client-side logs are available via browser console
+
+> Inspired by Law 38: *"Attention = Reality Allocation"* and Law 26: *"Truth = Lowest-Energy Configuration"*
+
+---
+
+## 📘 Scientific Notes
+
+- **Phi Modulation**: Matrix generation uses golden angle waveforms for perceptual coherence.
+- **Quantum Simulation**: Event probabilities mimic quantum fluctuation models.
+- **Symbolic Detection**: Saliency and gradient-based symbolic clustering predicts emergent structure.
+- **Relativity Simulation**: Lorentz-style glyph compression at high phi velocities models observer-relative distortion.
+
+---
+
+## 📜 License & Attribution
+
+- MIT License
+- Created by TaoishTechy & Trinary
+- Inspired by TempleOS, symbolic AI, and recursive cognition research.
+
+---
+
+## 🌱 Final Note
+
+This system is both a playground and a platform: it simulates symbol-based reality perception using modern browser technology and recursive AI theory. Whether you're here to experiment, meditate, or explore cognition through glyphs — welcome.
 
