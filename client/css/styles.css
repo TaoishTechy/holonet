@@ -1,0 +1,34 @@
+:root{
+  --bg:#0c0f11; --panel:#12161a; --ink:#e6edf3; --muted:#9aa4ad;
+  --accent:#63b3ed; --ok:#1ee494; --warn:#f0b14b; --bad:#ff557a;
+  --chip:#1b2127; --grid:#1a1f24; --line:#26303a; --edge:#6ee7ff;
+}
+*{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
+html,body{height:100%; margin:0; background:var(--bg); color:var(--ink)}
+.topbar{height:48px; display:flex; align-items:center; padding:0 14px; background:var(--panel); border-bottom:1px solid var(--line)}
+.brand{font-weight:700; letter-spacing:.3px}
+.ver{color:var(--muted); font-weight:500}
+.spacer{flex:1}
+.right{display:flex; gap:12px; align-items:center}
+.chip{padding:4px 8px; border-radius:999px; background:var(--chip); color:var(--muted); font-size:12px}
+.chip.ok{color:#0f5132; background:#d1e7dd}
+.chip.warn{color:#664d03; background:#fff3cd}
+.chip.bad{color:#842029; background:#f8d7da}
+.chip.idle{background:#1b2127}
+
+#controls{padding:10px 14px; background:#0e1317; border-bottom:1px solid var(--line)}
+#controls .row{display:flex; gap:10px; align-items:center; margin:6px 0}
+#controls label{color:var(--muted); font-size:12px}
+#controls input[type="text"]{width:320px; padding:6px 8px; background:#0b1014; border:1px solid #212833; color:var(--ink); border-radius:8px}
+#controls input[type="range"]{accent-color:var(--accent)}
+#controls select{padding:6px 8px; background:#0b1014; border:1px solid #212833; color:var(--ink); border-radius:8px}
+#controls button{padding:6px 10px; border:1px solid #26303a; background:#131a20; color:var(--ink); border-radius:8px; cursor:pointer}
+#controls button:hover{border-color:#2f3b48}
+.toggle{display:flex; align-items:center; gap:6px}
+
+#stage{position:relative; height:calc(100vh - 48px - 160px); background:var(--grid)}
+#canvas2d,#canvas3d{position:absolute; inset:0; width:100%; height:100%}
+#canvas3d{display:none}
+
+.foot{padding:8px 14px; border-top:1px solid var(--line); background:var(--panel)}
+.log{max-height:240px; overflow:auto; background:#0b1014; border:1px solid #212833; padding:10px; border-radius:8px; color:#cfe2ff}
