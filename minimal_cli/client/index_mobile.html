@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HoloNet v2.4 - Symbolic Relativity BBS Terminal</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="terminal">
+        <header>
+            <div class="ascii-art">█▀▀▀▀▀█ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄</div>
+            <h1>HoloNet v2.4 - Symbolic Relativity BBS Terminal</h1>
+            <div id="status">Status: [Disconnected] | Session: None | Latency: 0ms | FPS: 0</div>
+        </header>
+        
+        <div id="controls">
+            <div>
+                <label for="velocity">Phi Velocity (v): <span id="vValue">0.50</span></label>
+                <input type="range" id="velocity" min="0" max="1" step="0.01" value="0.5">
+            </div>
+<div id="mobileControls" style="padding: 10px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
+  <button onclick="send({ op: 'pan', dx: 0, dy: -1 })">↑</button>
+  <div style="display: flex; gap: 10px;">
+    <button onclick="send({ op: 'pan', dx: -1, dy: 0 })">←</button>
+    <button onclick="send({ op: 'view', x_offset: 0, y_offset: 0 })">⟳</button>
+    <button onclick="send({ op: 'pan', dx: 1, dy: 0 })">→</button>
+  </div>
+  <button onclick="send({ op: 'pan', dx: 0, dy: 1 })">↓</button>
+  <button onclick="send({ op: 'zoom', z: (zSlider?.valueAsNumber || 0) + 1 })">Zoom +</button>
+  <button onclick="send({ op: 'zoom', z: (zSlider?.valueAsNumber || 0) - 1 })">Zoom −</button>
+  <button onclick="send({ op: 'transform', enable: true })">Relativity</button>
+  <button onclick="send({ op: 'symbolic', enable: true })">Symbolic</button>
+</div>
+
+            <div>
+                <label for="horizon">Symbolic Horizon (z): <span id="zValue">0</span></label>
+                <input type="range" id="horizon" min="0" max="32" value="0">
+            </div>
+            <div>
+                <label for="width">View Width: <span id="wValue">120</span></label>
+                <input type="range" id="width" min="16" max="240" value="120">
+            </div>
+            <div>
+                <label for="height">View Height: <span id="hValue">36</span></label>
+                <input type="range" id="height" min="8" max="80" value="36">
+            </div>
+            <button id="connectBtn">[CONNECT]</button>
+            <button id="disconnectBtn" disabled>[DISCONNECT]</button>
+            <button id="transformBtn" disabled>[APPLY RELATIVITY]</button>
+            <button onclick="document.getElementById('helpModal').style.display='block'" style="background: #aa00aa;">[HELP]</button>
+        </div>
+        
+        <div id="frameContainer">
+            <canvas id="frameCanvas" width="960" height="288"></canvas>
+            <div id="canvasOverlay">
+                <div class="no-signal">NO SIGNAL</div>
+                <div class="loading-text">Receiving Symbolic Stream... [Static]</div>
+                <div class="static-noise"></div>
+            </div>
+        </div>
+        
+        <div id="sigilDisplay">Sigil: [Ready for Emergence]</div>
+        
+        <div id="log">
+            <div class="ascii-art">Welcome to HoloNet BBS. Await symbolic relativity...</div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="helpModal">
+        <div id="helpContent">
+            <span class="close" onclick="document.getElementById('helpModal').style.display='none'">&times;</span>
+            <h3>BBS Commands & Controls</h3>
+            <ul>
+                <li><strong>CONNECT</strong>: Establish symbolic link to server.</li>
+                <li><strong>Phi Velocity (v)</strong>: Adjust observer pseudo-velocity for Lorentz warping (0.0-1.0).</li>
+                <li><strong>Symbolic Horizon (z)</strong>: Shift depth plane for horizon effects (0-32).</li>
+                <li><strong>View Width/Height</strong>: Resize perceptual field; triggers view update.</li>
+                <li><strong>APPLY RELATIVITY</strong>: Send transform op for symbolic matrix warp.</li>
+                <li><strong>DISCONNECT</strong>: Close session gracefully.</li>
+                <li><strong>Log</strong>: Scroll for event history; errors in red.</li>
+                <li><strong>Sigil</strong>: Emergent symbolic output from Φ-integration.</li>
+            </ul>
+            <p style="color: #ffff00;">Status shows connection, session, latency, FPS. Canvas renders glyph matrix + symbolic overlays. Static noise indicates waiting for frames.</p>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
